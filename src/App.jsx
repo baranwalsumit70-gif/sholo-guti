@@ -2,6 +2,19 @@ import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { initializeApp } from "firebase/app";
 import { getDatabase, ref, get, set } from "firebase/database";
 
+const firebaseConfig = {
+  apiKey: "AIzaSyCI-Sev13rNqgDO6rpcCZPAotLftEeI5uBs",
+  authDomain: "sholo-guti-66064.firebaseapp.com",
+  databaseURL: "https://sholo-guti-66064-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "sholo-guti-66064",
+  storageBucket: "sholo-guti-66064.firebasestorage.app",
+  messagingSenderId: "946497734881",
+  appId: "1:946497734881:web:e620f33aa1316a3864cfa0"
+};
+
+const firebaseApp = initializeApp(firebaseConfig);
+const database = getDatabase(firebaseApp);
+
 /* ============================================================================
    SHOLO GUTI — Sixteen Soldiers            v2, reconciled with the reference
    ----------------------------------------------------------------------------
