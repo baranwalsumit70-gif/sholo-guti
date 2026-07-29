@@ -176,18 +176,27 @@ const stepsFrom = (st, from) =>
 
 function legalMoves(st, player = st.turn) {
   if (st.winner !== null) return [];
-  if (st.chainFrom) return capturesFrom(st, st.chainFrom);
+
+  // A capture chain has already started.
+  // The player may continue ONLY with the same soldier,
+  // or use "End my turn" to stop the chain.
+  if (st.chainFrom) {
+    return capturesFrom(st, st.chainFrom);
+  }
+
   const mine = NODE_IDS.filter((n) => owner(st, n) === player);
   const caps = mine.flatMap((n) => capturesFrom(st, n));
-  if (caps.length && st.rules.mandatoryCapture) return caps;
-  return [...caps, ...mine.flatMap((n) => stepsFrom(st, n))];
+  const steps = mine.flatMap((n) => stepsFrom(st, n));
+
+  // Optional house rule. Normally false.
+  if (caps.length && st.rules.mandatoryCapture) {
+    return caps;
+  }
+
+  // Normal Sholo Guti freedom:
+  // captures are suggested but NOT compulsory.
+  return [...caps, ...steps];
 }
-const movesForPiece = (st, node) => legalMoves(st).filter((m) => m.from === node);
-const capturingPieces = (st) => {
-  const s = new Set();
-  legalMoves(st).forEach((m) => m.captured && s.add(m.from));
-  return s;
-};
 
 function applyMove(st, move) {
   const board = { ...st.board };
@@ -781,19 +790,84 @@ useEffect(() => {
     return () => clearTimeout(t);
   }, [aiTurn, state, level, commit]);
 
-  const onNode = (n) => {
-    unlock();
-    if (state.winner !== null || !myTurn) return;
-    const mv = selected && moves.find((m) => m.to === n);
-    if (mv) return commit(mv);
-    if (owner(state, n) === state.turn) {
-      if (state.chainFrom && state.chainFrom !== n) { play("deny"); return; }
-      if (!movesForPiece(state, n).length) { play("deny"); setNote("That soldier has nowhere to go."); return; }
-      play("select"); setSelected(n === selected ? null : n); return;
+const onNode = (n) => {
+  unlock();
+
+  if (state.winner !== null || !myTurn) return;
+
+  // ---------------------------------------
+  // 1. Player clicked a legal destination
+  // ---------------------------------------
+  const mv = selected && moves.find((m) => m.to === n);
+
+  if (mv) {
+    return commit(mv);
+  }
+
+  // ---------------------------------------
+  // 2. Player clicked one of their soldiers
+  // ---------------------------------------
+  if (owner(state, n) === state.turn) {
+
+    // During an active capture chain,
+    // only the soldier that just captured can continue.
+    if (state.chainFrom && n !== state.chainFrom) {
+      play("deny");
+      setNote(
+        "This soldier is in a capture chain. Continue capturing with it, or press End my turn."
+      );
+      setSelected(state.chainFrom);
+      return;
     }
-    if (owner(state, n)) { play("deny"); setNote("That one belongs to your opponent."); }
-    setSelected(state.chainFrom || null);
-  };
+
+    const pieceMoves = movesForPiece(state, n);
+
+    if (!pieceMoves.length) {
+      play("deny");
+      setNote("That soldier has nowhere to go.");
+      return;
+    }
+
+    play("select");
+
+    // Tell player about an available capture,
+    // but NEVER force it before a chain begins.
+    const hasCapture = pieceMoves.some((m) => m.captured);
+
+    if (hasCapture && !state.chainFrom) {
+      setNote(
+        "Capture available. You may capture or choose any other legal move."
+      );
+    } else if (state.chainFrom) {
+      setNote(
+        "Another capture is available. Continue capturing or end your turn."
+      );
+    } else {
+      setNote("");
+    }
+
+    setSelected(n === selected ? null : n);
+    return;
+  }
+
+  // ---------------------------------------
+  // 3. Opponent's soldier
+  // ---------------------------------------
+  if (owner(state, n)) {
+    play("deny");
+    setNote("That one belongs to your opponent.");
+    return;
+  }
+
+  // ---------------------------------------
+  // 4. Empty invalid point
+  // ---------------------------------------
+  if (state.chainFrom) {
+    setSelected(state.chainFrom);
+  } else {
+    setSelected(null);
+  }
+};
 
   const stop = () => {
     play("turn");
@@ -857,13 +931,30 @@ useEffect(() => {
     isOnline ? (p === online.role ? "You" : "Your friend")
     : mode === "ai" ? (p === 1 ? "You" : `Computer · ${level}`)
     : `Player ${p}`;
-  const guidance = state.winner !== null ? "Match over."
-    : isOnline && !online.joined ? "Send the code to your friend — the match starts when they join."
-    : isOnline && !myTurn ? "Waiting for your friend's move…"
-    : aiTurn ? "Computer is thinking…"
-    : state.chainFrom ? "You can jump again from here — or end your turn."
-    : selected ? "Tap a glowing point to move there."
-    : armed.size ? `${armed.size} of your soldiers can capture. Taking is your choice.`
+const guidance =
+  state.winner !== null
+    ? "Match over."
+
+    : isOnline && !online.joined
+    ? "Send the code to your friend — the match starts when they join."
+
+    : isOnline && !myTurn
+    ? "Waiting for your friend's move…"
+
+    : aiTurn
+    ? "Computer is thinking…"
+
+    : state.chainFrom
+    ? "Another capture is available. Continue with this soldier, or end your turn."
+
+    : selected
+    ? moves.some((m) => m.captured)
+      ? "Capture available. You may capture or choose another legal move."
+      : "Tap a glowing point to move there."
+
+    : armed.size
+    ? `${armed.size} of your soldiers can capture. Capture is optional — you may move another soldier.`
+
     : "Tap one of your soldiers to see where it can go.";
 
   const css = `
