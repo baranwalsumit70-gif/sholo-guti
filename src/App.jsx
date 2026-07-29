@@ -1050,7 +1050,7 @@ function OnlinePanel({ onHost, onJoin }) {
   const [code, setCode] = useState("");
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
-  const available = hasStorage();
+  const available = true;
 
   const host = async () => { setBusy(true); setErr(""); const ok = await onHost(); if (!ok) setErr("Online play only works in the published version of this game."); setBusy(false); };
   const join = async () => {
