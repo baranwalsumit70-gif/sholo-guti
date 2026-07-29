@@ -405,15 +405,22 @@ const applyAction = (st, a) =>
   a.e ? endTurn(st) : applyMove(st, { from: a.f, to: a.t, captured: a.c || null });
 
 async function roomGet(code) {
-  if (!hasStorage()) return null;
   try {
-    const r = await window.storage.get(roomKey(code), true);
-    return r ? JSON.parse(r.value) : null;
-  } catch { return null; }
+    const snapshot = await get(ref(database, roomKey(code)));
+    return snapshot.exists() ? snapshot.val() : null;
+  } catch (error) {
+    console.error("Firebase roomGet error:", error);
+    return null;
+  }
 }
+
 async function roomSet(code, data) {
-  if (!hasStorage()) throw new Error("no storage");
-  await window.storage.set(roomKey(code), JSON.stringify(data), true);
+  try {
+    await set(ref(database, roomKey(code)), data);
+  } catch (error) {
+    console.error("Firebase roomSet error:", error);
+    throw error;
+  }
 }
 
 /* ============================================================================
