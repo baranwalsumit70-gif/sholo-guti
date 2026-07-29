@@ -1,0 +1,20 @@
+{
+  "name": "sholo-guti",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Sholo Guti (Sixteen Soldiers) — a traditional South Asian strategy board game, rebuilt as a premium digital tabletop experience.",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.1",
+    "vite": "^5.4.8"
+  }
+}
