@@ -1,4 +1,6 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import { initializeApp } from "firebase/app";
+import { getDatabase, ref, get, set } from "firebase/database";
 
 /* ============================================================================
    SHOLO GUTI — Sixteen Soldiers            v2, reconciled with the reference
