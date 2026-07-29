@@ -810,7 +810,7 @@ export default function App() {
     const room = await roomGet(code);
     if (!room) return "No match found with that code.";
     let s = newGame(room.rules || rules);
-    for (const a of room.actions) s = applyAction(s, a);
+    for (const a of (room.actions || [])) s = applyAction(s, a);
     try {
       await roomSet(code, { ...room, joined: true, updated: Date.now() });
     } catch { return "Could not join. Try again."; }
