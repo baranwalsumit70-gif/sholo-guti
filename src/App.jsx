@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { initializeApp } from "firebase/app";
-import { getDatabase, ref, get, set } from "firebase/database";
+import { getDatabase, ref, get, set, onValue } from "firebase/database";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCI-Sev13rNqgDO6rpcCZPAotLftEeI5uBs",
@@ -731,29 +731,49 @@ export default function App() {
     if (mode === "online") pushRoom(next);
   }, [state, play, mode, pushRoom]);
 
-  // Poll the room and replay whatever the other side has played.
-  useEffect(() => {
-    if (!isOnline || state.winner !== null) return;
-    let alive = true;
-    const tick = async () => {
-      const room = await roomGet(online.code);
-      if (!room || !alive) return;
-      if (room.joined && !online.joined) setOnline((o) => o && { ...o, joined: true });
+// Realtime Firebase listener — instantly receive the other player's moves.
+useEffect(() => {
+  if (!isOnline || !online?.code || state.winner !== null) return;
+
+  const roomRef = ref(database, roomKey(online.code));
+
+  const unsubscribe = onValue(
+    roomRef,
+    (snapshot) => {
+      if (!snapshot.exists()) return;
+
+      const room = snapshot.val();
       const roomActions = room.actions || [];
-      if (roomActions.length > state.history.length) {
-      let s = state;
-      const fresh = roomActions.slice(state.history.length);
-        for (const a of fresh) s = applyAction(s, a);
-        play(fresh.some((a) => a.c) ? "capture" : "move");
-        setState(s);
-        setSelected(null);
-        setNote("Your friend played.");
+
+      // Detect when second player joins.
+      if (room.joined && !online.joined) {
+        setOnline((o) => o && { ...o, joined: true, sync: "ok" });
       }
-    };
-    tick();
-    const iv = setInterval(tick, myTurn ? 6000 : 2500);
-    return () => { alive = false; clearInterval(iv); };
-  }, [isOnline, online, state, myTurn, play]);
+
+      // Nothing new to apply.
+      if (roomActions.length <= state.history.length) return;
+
+      let nextState = state;
+      const freshActions = roomActions.slice(state.history.length);
+
+      for (const action of freshActions) {
+      nextState = applyAction(nextState, action);
+   }
+
+      play(freshActions.some((a) => a.c) ? "capture" : "move");
+      setState(nextState);
+      setSelected(null);
+      setNote("Your friend played.");
+      setOnline((o) => o && { ...o, sync: "ok" });
+    },
+    (error) => {
+      console.error("Firebase realtime sync error:", error);
+      setOnline((o) => o && { ...o, sync: "error" });
+    }
+  );
+
+  return () => unsubscribe();
+}, [isOnline, online?.code, online?.joined, state, play]);
 
   useEffect(() => {
     if (!aiTurn) return;
