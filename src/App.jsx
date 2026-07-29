@@ -704,7 +704,7 @@ export default function App() {
     try {
       const room = await roomGet(online.code);
       const mine = encodeActions(next.history);
-      if (room && room.actions.length > mine.length) return; // they are ahead; next poll wins
+      if (room && (room.actions || []).length > mine.length) return; // they are ahead; next poll wins
       await roomSet(online.code, {
         v: 1, rules: next.rules, actions: mine,
         joined: room ? room.joined || online.role === 2 : online.role === 2,
@@ -739,9 +739,10 @@ export default function App() {
       const room = await roomGet(online.code);
       if (!room || !alive) return;
       if (room.joined && !online.joined) setOnline((o) => o && { ...o, joined: true });
-      if (room.actions.length > state.history.length) {
-        let s = state;
-        const fresh = room.actions.slice(state.history.length);
+      const roomActions = room.actions || [];
+      if (roomActions.length > state.history.length) {
+      let s = state;
+      const fresh = roomActions.slice(state.history.length);
         for (const a of fresh) s = applyAction(s, a);
         play(fresh.some((a) => a.c) ? "capture" : "move");
         setState(s);
